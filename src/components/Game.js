@@ -6,7 +6,7 @@ import { address } from '../helpers/const';
 
 function Card({ shape, color, num, fill, onClick, active }) {
   const cardId = `${shape}${color}${num}${fill}`;
-  fill = fill === 0 ? '00' : fill === 1 ? '44' : 'cc';
+  fill = fill === 0 ? '00' : fill === 1 ? '45' : 'cc';
   color = color === 0 ? '#ff0000' : color === 1 ? '#00aa00' : '#0000ff';
   num += 1;
   const MyShape = props => (
