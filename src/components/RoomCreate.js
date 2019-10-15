@@ -18,6 +18,7 @@ function RoomCreate(props) {
       })
         .then(r => r.json())
         .then(r => {
+          console.log(r);
           if (r.type === 'createRoom_success') {
             goToRoom(r.room.id);
           }

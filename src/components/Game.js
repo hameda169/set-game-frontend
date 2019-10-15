@@ -1,10 +1,10 @@
 import React, { Component } from 'react';
 import socketIOClient from 'socket.io-client';
 import { Rectangle, Ellipse, Triangle } from 'react-shapes';
-import { Button } from 'react-bootstrap';
+import { Button, FormText } from 'react-bootstrap';
 import { address } from '../helpers/const';
 
-function Card({ shape, color, num, fill, onClick, active }) {
+function Card({ shape, color, num, fill, onClick, active, width, height, ...props }) {
   const cardId = `${shape}${color}${num}${fill}`;
   fill = fill === 0 ? '00' : fill === 1 ? '45' : 'cc';
   color = color === 0 ? '#ff0000' : color === 1 ? '#00aa00' : '#0000ff';
@@ -17,9 +17,21 @@ function Card({ shape, color, num, fill, onClick, active }) {
     </div>
   );
   return (
-    <div className={`game-cards ${active ? 'active' : ''}`} onClick={() => onClick(cardId)}>
-      {[...Array(num)].map(() => (
-        <MyShape width={90} height={50} fill={{ color: `${color}${fill}` }} stroke={{ color }} strokeWidth={5} />
+    <div
+      {...props}
+      className={`game-cards ${active ? 'active' : ''}`}
+      onClick={() => onClick(cardId)}
+      style={{ width: width ? 30 : null, height: height ? 50 : null }}
+    >
+      {[...Array(num)].map((_, idx) => (
+        <MyShape
+          key={`${idx}`}
+          width={!width ? 90 : width}
+          height={!height ? 50 : height}
+          fill={{ color: `${color}${fill}` }}
+          stroke={{ color }}
+          strokeWidth={!height ? 5 : height / 10}
+        />
       ))}
       {active && <div className={'my-badge'}>{'✓'}</div>}
     </div>
@@ -32,14 +44,18 @@ class Game extends Component {
     this.socket = null;
     this.roomId = props.match.params.id;
     this.state = {
+      name: '',
       endpoint: address,
+      roomName: '',
       cards: [],
       selected: [],
       isJoined: false,
       isStarted: false,
-      userId: '',
+      userPublicId: '',
+      userSid: '',
       restricted: false,
       errorMessage: null,
+      users: {},
     };
   }
 
@@ -47,8 +63,12 @@ class Game extends Component {
     console.log(message);
   };
   _join = () => {
+    if (this.state.name.length < 2) {
+      alert('Please Enter Your Name');
+      return;
+    }
     if (!this.state.isJoined) {
-      this.socket.emit('join', { name: '', room: `${this.roomId}` });
+      this.socket.emit('join', { name: this.state.name, room: `${this.roomId}` });
     } else {
       console.log('You Are joined the room');
     }
@@ -83,7 +103,7 @@ class Game extends Component {
   _joinResult = (status, data) => {
     console.log('Join', status, data);
     if (status === 0) {
-      this.setState({ userId: data.id, isJoined: true });
+      this.setState({ userPublicId: data.id, userSid: data.sid, isJoined: true, roomName: data.room_name });
       console.log('You joined room successfully');
     }
   };
@@ -96,8 +116,9 @@ class Game extends Component {
     this.setState({ selected: [] });
     if (status === 0) {
       this.setState({ cards: [...this.state.cards].filter(x => !data.cards.includes(x)), restricted: false });
+      this.setState({ users: data.users });
     } else {
-      if (data.sid === this.state.userId) {
+      if (data.id === this.state.userPublicId) {
         this.setState({ restricted: true });
       } else {
         this.setState({ restricted: false });
@@ -121,6 +142,9 @@ class Game extends Component {
     this.socket.on('deal_fail', data => this._dealResponse(1, data));
   };
 
+  nameChanged = event => {
+    this.setState({ name: event.target.value });
+  };
   componentDidMount() {
     fetch(`${this.state.endpoint}/room/${this.roomId}`)
       .then(r => r.json())
@@ -145,18 +169,47 @@ class Game extends Component {
           <div className={'col-sm-3'}>
             <div className={'col panel'}>
               <div>
-                <Button disabled={this.state.isJoined} onClick={this._join}>
-                  {this.state.isJoined ? `Room id: ${this.roomId}` : 'Join Room'}
-                </Button>
+                {!this.state.isJoined ? (
+                  <form className='form-horizontal' id={'creating'} onSubmit={this._join} style={{ display: 'flex' }}>
+                    <div className='form-group' style={{ flex: 1 }}>
+                      <div>
+                        <input className='form-control' onChange={this.nameChanged} placeholder='Enter Name' />
+                      </div>
+                    </div>
+                    <div className='form-group'>
+                      <div>
+                        <Button onClick={this._join}>Join Room</Button>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <div style={{ marginTop: 20 }}>
+                    <Button disabled={this.state.isJoined}>Your Name: {this.state.name}</Button>
+                  </div>
+                )}
               </div>
-              <div style={{ marginTop: 20 }}>
-                <Button disabled={this.state.isStarted} onClick={this._start}>
-                  {this.state.isStarted ? 'Started' : 'Start Room'}
-                </Button>
-              </div>
-              <div style={{ marginTop: 20 }}>
-                <Button onClick={this._deal}>New Cards</Button>
-              </div>
+              {this.state.isJoined && (
+                <div style={{ marginTop: 20 }}>
+                  <Button disabled={this.state.isJoined}>Room: {this.state.roomName}</Button>
+                </div>
+              )}
+              {this.state.isJoined && (
+                <>
+                  <div style={{ marginTop: 20 }}>
+                    <Button disabled={this.state.isStarted} onClick={this._start}>
+                      {this.state.isStarted ? 'Started' : 'Start Room'}
+                    </Button>
+                  </div>
+                  <div style={{ marginTop: 20 }}>
+                    <Button onClick={this._deal}>New Cards</Button>
+                  </div>
+                  <div style={{ marginTop: 20 }}>
+                    {Object.values(this.state.users).map((x, idx) => (
+                      <FormText key={`${idx}`}>{`${idx + 1}.${x.name}: ${x.scores.length}`}</FormText>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <div className={'col-sm-9'}>
@@ -168,13 +221,21 @@ class Game extends Component {
                 minHeight: '100vh',
               }}
             >
-              {myArr.map(x => (
-                <div className={'cards-row'}>
-                  {x.map(y => {
+              {myArr.map((x, idx1) => (
+                <div key={`${idx1}`} className={'cards-row'}>
+                  {x.map((y, idx2) => {
                     const ac = this.state.selected.indexOf(y) > -1;
                     y = y.split('').map(t => parseInt(t));
                     return (
-                      <Card shape={y[0]} color={y[1]} num={y[2]} fill={y[3]} active={ac} onClick={this._cardClicked} />
+                      <Card
+                        key={`${idx2}`}
+                        shape={y[0]}
+                        color={y[1]}
+                        num={y[2]}
+                        fill={y[3]}
+                        active={ac}
+                        onClick={this._cardClicked}
+                      />
                     );
                   })}
                 </div>
