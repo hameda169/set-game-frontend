@@ -11,7 +11,7 @@
     "react-dom": "^16.9.0",
     "react-property-editor": "^1.4.0",
     "react-router-dom": "^5.1.0",
-    "react-scripts": "3.1.2",
+    "react-scripts": "5.0.1",
     "react-shapes": "^0.1.0",
     "socket.io-client": "^4.5.4"
   },
